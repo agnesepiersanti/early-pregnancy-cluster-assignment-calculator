@@ -1,0 +1,632 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Early-Pregnancy Metabolic Phenotype Calculator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Source+Serif+4:opsz,wght@8..60,400;8..60,600;8..60,700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<!-- SheetJS: reads/writes .xlsx entirely client-side (no data sent to any server) -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --paper:#FAF8F3;
+    --paper-line:#E4DECF;
+    --ink:#1C2430;
+    --ink-soft:#5B6270;
+    --rule:#D8D3C7;
+    --c1:#B5651D;
+    --c1-soft:#F3E4D3;
+    --c2:#0E7C7B;
+    --c2-soft:#DCEFEE;
+    --ok:#3F7D4F;
+    --ok-soft:#E7F1E9;
+    --focus:#1C2430;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:var(--paper);
+    background-image: linear-gradient(var(--paper-line) 1px, transparent 1px);
+    background-size: 100% 32px;
+    color:var(--ink);
+    font-family:'IBM Plex Sans', sans-serif;
+    line-height:1.5;
+    min-height:100vh;
+    padding:48px 20px 80px;
+  }
+  .wrap{max-width:760px;margin:0 auto;}
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin:0 0 10px;
+  }
+  h1{
+    font-family:'Source Serif 4', serif;
+    font-weight:700;
+    font-size:clamp(28px,4vw,38px);
+    line-height:1.15;
+    margin:0 0 14px;
+    letter-spacing:-0.01em;
+  }
+  .lede{ color:var(--ink-soft); font-size:15.5px; max-width:60ch; margin:0 0 8px; }
+  .source{
+    font-size:13px; color:var(--ink-soft);
+    margin:0 0 36px; padding-bottom:28px;
+    border-bottom:1px solid var(--rule);
+  }
+  .source strong{color:var(--ink);font-weight:600;}
+
+  .panel{
+    background:#fff; border:1px solid var(--rule); border-radius:2px;
+    padding:32px; margin-bottom:28px;
+  }
+  .panel h2{
+    font-family:'Source Serif 4', serif;
+    font-size:19px; font-weight:600; margin:0 0 4px;
+  }
+  .panel .step-note{ font-size:13px; color:var(--ink-soft); margin:0 0 20px; }
+  .panel .step-note code{
+    font-family:'IBM Plex Mono', monospace; font-size:12px;
+    background:var(--paper-line); padding:1px 5px; border-radius:2px;
+  }
+
+  .unit-row{
+    display:flex; gap:28px; flex-wrap:wrap;
+    margin-bottom:22px; padding-bottom:20px;
+    border-bottom:1px solid var(--paper-line);
+  }
+  .unit-toggle label{
+    display:block; font-size:12px; font-weight:500; color:var(--ink-soft);
+    margin-bottom:5px; text-transform:uppercase; letter-spacing:.04em;
+  }
+  .unit-toggle select{
+    font-family:'IBM Plex Mono', monospace; font-size:13px;
+    padding:6px 10px; border:1px solid var(--rule); border-radius:2px;
+    background:var(--paper); color:var(--ink); cursor:pointer;
+  }
+
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:20px 24px; }
+  @media (max-width:520px){ .grid{grid-template-columns:1fr;} }
+
+  .field label{ display:block; font-size:13px; font-weight:500; margin-bottom:6px; }
+  .field input{
+    width:100%; font-family:'IBM Plex Mono', monospace; font-size:16px;
+    padding:10px 12px; border:1px solid var(--rule); border-radius:2px;
+    background:var(--paper); color:var(--ink);
+  }
+  .field input:focus{ outline:2px solid var(--focus); outline-offset:1px; background:#fff; }
+  .field .hint{ font-size:11.5px; color:var(--ink-soft); margin-top:5px; }
+  .field.invalid input{border-color:var(--c1); background:var(--c1-soft);}
+  .field .err{ display:none; font-size:11.5px; color:var(--c1); margin-top:5px; }
+  .field.invalid .err{display:block;}
+
+  .actions{ display:flex; gap:12px; margin-top:26px; flex-wrap:wrap; }
+  button{
+    font-family:'IBM Plex Sans', sans-serif; font-size:14.5px; font-weight:600;
+    padding:12px 22px; border-radius:2px; cursor:pointer; border:1px solid var(--ink);
+  }
+  button:focus-visible{outline:2px solid var(--focus); outline-offset:2px;}
+  .btn-primary{background:var(--ink); color:#fff;}
+  .btn-primary:hover{background:#0f1520;}
+  .btn-secondary{background:#fff; color:var(--ink);}
+  .btn-secondary:hover{background:var(--paper);}
+  button:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-primary:disabled:hover{ background:var(--ink); }
+  .btn-secondary:disabled:hover{ background:#fff; }
+
+  .result{ display:none; margin-top:8px; }
+  .result.show{display:block;}
+  .result-card{
+    border-radius:2px; padding:24px 28px; border:1px solid var(--rule);
+    display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap;
+  }
+  .result-card.c1{background:var(--c1-soft); border-color:var(--c1);}
+  .result-card.c2{background:var(--c2-soft); border-color:var(--c2);}
+  .result-label{
+    font-family:'IBM Plex Mono', monospace; font-size:12px; letter-spacing:.08em;
+    text-transform:uppercase; color:var(--ink-soft); margin:0 0 4px;
+  }
+  .result-cluster{ font-family:'Source Serif 4', serif; font-weight:700; font-size:26px; margin:0; }
+  .result-card.c1 .result-cluster{color:var(--c1);}
+  .result-card.c2 .result-cluster{color:var(--c2);}
+  .result-desc{ font-size:13.5px; color:var(--ink-soft); max-width:34ch; }
+  .result-dist{ font-family:'IBM Plex Mono', monospace; font-size:13px; text-align:right; color:var(--ink-soft); }
+  .result-dist b{color:var(--ink); font-weight:600;}
+
+  details{ margin-top:20px; border-top:1px solid var(--rule); padding-top:16px; }
+  summary{
+    cursor:pointer; font-family:'IBM Plex Mono', monospace; font-size:12.5px;
+    letter-spacing:.04em; color:var(--ink-soft); user-select:none;
+  }
+  summary:hover{color:var(--ink);}
+  .work{ margin-top:18px; font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--ink); }
+  .work table{ width:100%; border-collapse:collapse; margin-bottom:18px; }
+  .work th, .work td{ text-align:left; padding:7px 10px; border-bottom:1px solid var(--paper-line); font-weight:400; }
+  .work th{color:var(--ink-soft); font-weight:500;}
+  .work .eq{color:var(--ink-soft);}
+
+  .disclaimer{
+    font-size:12.5px; color:var(--ink-soft);
+    border-left:2px solid var(--rule); padding:10px 0 10px 16px; margin-top:8px;
+  }
+  footer{
+    font-size:12px; color:var(--ink-soft); margin-top:40px;
+    padding-top:20px; border-top:1px solid var(--rule);
+  }
+  footer code{
+    font-family:'IBM Plex Mono', monospace; background:var(--paper-line);
+    padding:1px 5px; border-radius:2px;
+  }
+
+  .drop-area{
+    border:2px dashed var(--rule); border-radius:4px; padding:24px;
+    text-align:center; background:var(--paper); margin-top:4px;
+    transition: border-color .15s, background .15s;
+  }
+  .drop-area.dragover{ border-color:var(--ink); background:#fff; }
+  .drop-area p{ margin:0 0 12px; font-size:13.5px; color:var(--ink-soft); }
+  .drop-area .filename{ font-family:'IBM Plex Mono', monospace; font-size:12.5px; color:var(--ink); margin-top:10px; }
+  input[type="file"]{ display:none; }
+
+  .status{
+    margin-top:16px; padding:14px 16px; border-radius:2px;
+    font-size:13px; display:none; border:1px solid;
+  }
+  .status.show{display:block;}
+  .status.ok{ background:var(--ok-soft); border-color:var(--ok); color:#204d29; }
+  .status.error{ background:var(--c1-soft); border-color:var(--c1); color:#7a4013; }
+  .status .status-detail{ font-size:12px; color:var(--ink-soft); margin-top:6px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <p class="eyebrow">Table 2 &mdash; reference implementation</p>
+  <h1>Early-Pregnancy Metabolic Phenotype Calculator</h1>
+  <p class="lede">Enter one patient's values, or upload a spreadsheet to compute phenotype cluster assignments for a full patient list &mdash; based on the normalization and distance procedure reported in Table 2.</p>
+  <p class="source">Implements the exact procedure from <strong>Table 2</strong>: &ldquo;Procedure for Patient Cluster Assignment from Age, Pre-Pregnancy Body Mass Index, Fasting and Post-Load Glucose Values from the Early Pregnancy Oral Glucose Tolerance Test and Triglycerides.&rdquo; Patient values are never sent anywhere &mdash; every calculation runs locally, in your browser.</p>
+
+  <!-- Patient list panel -->
+  <div class="panel">
+    <h2>Patient list</h2>
+    <p class="step-note">Upload a spreadsheet with one row per patient, then press &ldquo;Assign clusters&rdquo; to compute results and download them as a new file. Expected columns (any order, not case-sensitive): <code>PatientID</code>, <code>Age</code>, <code>BMI</code>, <code>OGTT0</code>, <code>OGTT60</code>, <code>OGTT120</code>, <code>TG</code>. Not sure of the format? Download the template below first.</p>
+
+    <div class="unit-row">
+      <div class="unit-toggle">
+        <label for="listGlucoseUnit">Glucose units (OGTT0/60/120)</label>
+        <select id="listGlucoseUnit">
+          <option value="mmol/L">mmol/L</option>
+          <option value="mg/dL">mg/dL</option>
+        </select>
+      </div>
+      <div class="unit-toggle">
+        <label for="listTgUnit">Triglyceride units</label>
+        <select id="listTgUnit">
+          <option value="mmol/L">mmol/L</option>
+          <option value="mg/dL">mg/dL</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="drop-area" id="dropArea">
+      <p>Drag a spreadsheet here, or</p>
+      <button class="btn-secondary" type="button" id="chooseFileBtn">Choose file (.xlsx)</button>
+      <button class="btn-secondary" type="button" id="templateBtn">Download template</button>
+      <p class="filename" id="fileName"></p>
+      <input type="file" id="fileInput" accept=".xlsx, .xls">
+    </div>
+
+    <div class="actions">
+      <button id="assignListBtn" class="btn-primary" type="button" disabled>Assign clusters</button>
+    </div>
+
+    <div class="status" id="listStatus"></div>
+  </div>
+
+  <!-- Single patient panel -->
+  <div class="panel">
+    <h2>Single patient</h2>
+    <p class="step-note">Enter one patient's values directly.</p>
+
+    <div class="unit-row">
+      <div class="unit-toggle">
+        <label for="soloGlucoseUnit">Glucose units (OGTT0/60/120)</label>
+        <select id="soloGlucoseUnit">
+          <option value="mmol/L">mmol/L</option>
+          <option value="mg/dL">mg/dL</option>
+        </select>
+      </div>
+      <div class="unit-toggle">
+        <label for="soloTgUnit">Triglyceride units</label>
+        <select id="soloTgUnit">
+          <option value="mmol/L">mmol/L</option>
+          <option value="mg/dL">mg/dL</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="grid" id="formGrid">
+      <div class="field" data-field="age">
+        <label for="age">Age <span class="unit">(years)</span></label>
+        <input type="number" step="any" id="age" placeholder="e.g. 31">
+        <p class="hint">Cohort mean 32.07 &plusmn; 5.35 years</p>
+        <p class="err">Enter a valid age.</p>
+      </div>
+      <div class="field" data-field="bmi">
+        <label for="bmi">Pre-pregnancy BMI <span class="unit">(kg/m&sup2;)</span></label>
+        <input type="number" step="any" id="bmi" placeholder="e.g. 28.4">
+        <p class="hint">Cohort mean 29.87 &plusmn; 6.62 kg/m&sup2;</p>
+        <p class="err">Enter a valid BMI.</p>
+      </div>
+      <div class="field" data-field="ogtt0">
+        <label for="ogtt0">OGTT fasting glucose</label>
+        <input type="number" step="any" id="ogtt0" placeholder="e.g. 4.5">
+        <p class="hint" id="hint_ogtt0">Cohort mean 4.60 &plusmn; 0.48 mmol/L</p>
+        <p class="err">Enter a valid value.</p>
+      </div>
+      <div class="field" data-field="ogtt60">
+        <label for="ogtt60">OGTT 60-min glucose</label>
+        <input type="number" step="any" id="ogtt60" placeholder="e.g. 6.9">
+        <p class="hint" id="hint_ogtt60">Cohort mean 6.82 &plusmn; 1.85 mmol/L</p>
+        <p class="err">Enter a valid value.</p>
+      </div>
+      <div class="field" data-field="ogtt120">
+        <label for="ogtt120">OGTT 120-min glucose</label>
+        <input type="number" step="any" id="ogtt120" placeholder="e.g. 5.7">
+        <p class="hint" id="hint_ogtt120">Cohort mean 5.68 &plusmn; 1.48 mmol/L</p>
+        <p class="err">Enter a valid value.</p>
+      </div>
+      <div class="field" data-field="tg">
+        <label for="tg">Triglycerides</label>
+        <input type="number" step="any" id="tg" placeholder="e.g. 1.4">
+        <p class="hint" id="hint_tg">Cohort mean 1.35 &plusmn; 0.48 mmol/L</p>
+        <p class="err">Enter a valid value.</p>
+      </div>
+    </div>
+
+    <div class="actions">
+      <button id="computeBtn" class="btn-primary" type="button">Assign cluster</button>
+      <button id="resetBtn" class="btn-secondary" type="button">Reset</button>
+    </div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="panel" style="padding:28px;">
+      <h2 style="margin-bottom:18px;">Cluster assignment</h2>
+      <div class="result-card" id="resultCard">
+        <div>
+          <p class="result-label">Assigned to</p>
+          <p class="result-cluster" id="resultCluster">&mdash;</p>
+          <p class="result-desc" id="resultDesc"></p>
+        </div>
+        <div class="result-dist" id="resultDist"></div>
+      </div>
+
+      <details>
+        <summary>Show calculation (steps 1&ndash;3, as reported in Table 2)</summary>
+        <div class="work" id="workArea"></div>
+      </details>
+    </div>
+  </div>
+
+  <p class="disclaimer">This tool reproduces the population-level cluster-assignment procedure derived from the study's training cohort (DALI and GESTDIA). It is provided for research transparency and reproducibility alongside the manuscript and is <strong>not validated for individual clinical decision-making</strong>. Cluster centroids reflect the study population and have not been externally validated.</p>
+
+  <footer>
+    Reference implementation of <code>Table 2</code> from the manuscript &ldquo;Early pregnancy data-driven cluster phenotyping defines risk constellations for later gestational diabetes and adverse outcomes.&rdquo; All computation runs client-side; no patient data is ever transmitted or stored. This page loads its fonts and the spreadsheet-reading library (SheetJS) from public CDNs, but requires no server or build step of its own. Provided as part of the study's code availability statement.
+  </footer>
+
+</div>
+
+<script>
+  const MEAN = {age:32.07, bmi:29.87, ogtt0:4.60, ogtt60:6.82, ogtt120:5.68, tg:1.35};
+  const SD   = {age:5.35,  bmi:6.62,  ogtt0:0.48, ogtt60:1.85, ogtt120:1.48, tg:0.48};
+  const PLAIN = {age:'Age', bmi:'BMIPG', ogtt0:'OGTT0', ogtt60:'OGTT60', ogtt120:'OGTT120', tg:'TG'};
+  const fields = ['age','bmi','ogtt0','ogtt60','ogtt120','tg'];
+  const GLUCOSE_FACTOR = 18.018; // mg/dL per mmol/L
+  const TG_FACTOR = 88.57;       // mg/dL per mmol/L
+
+  const CENTROIDS = {
+    1: {age:0.16,  bmi:0.57,  ogtt0:0.51,  ogtt60:0.70,  ogtt120:0.70,  tg:0.46},
+    2: {age:-0.13, bmi:-0.50, ogtt0:-0.44, ogtt60:-0.60, ogtt120:-0.61, tg:-0.40}
+  };
+
+  function fmt(n, d=3){ return (Math.round(n * Math.pow(10,d)) / Math.pow(10,d)).toFixed(d); }
+
+  function toMmolGlucose(v, unit){ return unit === 'mg/dL' ? v / GLUCOSE_FACTOR : v; }
+  function toMmolTg(v, unit){ return unit === 'mg/dL' ? v / TG_FACTOR : v; }
+
+  function computeCluster(std){
+    const norm = {};
+    fields.forEach(f => norm[f] = (std[f] - MEAN[f]) / SD[f]);
+    const dist = {};
+    [1,2].forEach(k=>{
+      let s = 0;
+      fields.forEach(f => s += Math.pow(norm[f] - CENTROIDS[k][f], 2));
+      dist[k] = Math.sqrt(s);
+    });
+    const assigned = dist[1] < dist[2] ? 1 : 2;
+    return { norm, dist, assigned };
+  }
+
+  /* ---------- Single patient panel ---------- */
+
+  function refreshSoloHints(){
+    const gUnit = document.getElementById('soloGlucoseUnit').value;
+    const tUnit = document.getElementById('soloTgUnit').value;
+    ['ogtt0','ogtt60','ogtt120'].forEach(f=>{
+      let mean = MEAN[f], sd = SD[f];
+      if (gUnit === 'mg/dL'){ mean *= GLUCOSE_FACTOR; sd *= GLUCOSE_FACTOR; }
+      document.getElementById('hint_'+f).textContent = `Cohort mean ${fmt(mean,2)} \u00B1 ${fmt(sd,2)} ${gUnit}`;
+    });
+    let tMean = MEAN.tg, tSd = SD.tg;
+    if (tUnit === 'mg/dL'){ tMean *= TG_FACTOR; tSd *= TG_FACTOR; }
+    document.getElementById('hint_tg').textContent = `Cohort mean ${fmt(tMean,2)} \u00B1 ${fmt(tSd,2)} ${tUnit}`;
+  }
+
+  function readSoloValues(){
+    let ok = true;
+    const raw = {}, std = {};
+    fields.forEach(f=>{
+      const input = document.getElementById(f);
+      const wrap = input.closest('.field');
+      const v = parseFloat(input.value);
+      if (input.value.trim()==='' || isNaN(v)){
+        wrap.classList.add('invalid'); ok = false;
+      } else {
+        wrap.classList.remove('invalid');
+        raw[f] = v;
+      }
+    });
+    if (!ok) return null;
+
+    const gUnit = document.getElementById('soloGlucoseUnit').value;
+    const tUnit = document.getElementById('soloTgUnit').value;
+    std.age = raw.age;
+    std.bmi = raw.bmi;
+    std.ogtt0 = toMmolGlucose(raw.ogtt0, gUnit);
+    std.ogtt60 = toMmolGlucose(raw.ogtt60, gUnit);
+    std.ogtt120 = toMmolGlucose(raw.ogtt120, gUnit);
+    std.tg = toMmolTg(raw.tg, tUnit);
+    return { raw, std, gUnit, tUnit };
+  }
+
+  function compute(){
+    const input = readSoloValues();
+    const resultBox = document.getElementById('result');
+    if (!input){ resultBox.classList.remove('show'); return; }
+
+    const { raw, std, gUnit, tUnit } = input;
+    const { norm, dist, assigned } = computeCluster(std);
+
+    const card = document.getElementById('resultCard');
+    card.className = 'result-card ' + (assigned===1 ? 'c1':'c2');
+    document.getElementById('resultCluster').textContent = 'Cluster ' + assigned;
+    document.getElementById('resultDesc').textContent = assigned===1
+      ? 'Higher-risk metabolic phenotype: elevated glucose, BMI and triglycerides relative to the cohort mean.'
+      : 'Lower-risk metabolic phenotype: values closer to or below the cohort mean across all six inputs.';
+    document.getElementById('resultDist').innerHTML =
+      'D<sub>cluster 1</sub> = <b>' + fmt(dist[1]) + '</b><br>D<sub>cluster 2</sub> = <b>' + fmt(dist[2]) + '</b>';
+
+    let html = '<table><tr><th>Variable</th><th>Entered</th><th>Standardized (mmol/L)</th><th>Cohort mean</th><th>Cohort SD</th><th>Normalized (z-score)</th></tr>';
+    fields.forEach(f=>{
+      const isGlucose = f.startsWith('ogtt');
+      const unit = isGlucose ? gUnit : (f==='tg' ? tUnit : '');
+      const enteredStr = raw[f] + (unit ? ' '+unit : (f==='age' ? ' yr' : f==='bmi' ? ' kg/m\u00B2' : ''));
+      const usedStr = unit ? fmt(std[f],2) : '\u2014'; // dash only for age/BMI, which have no unit conversion
+      html += '<tr><td>'+PLAIN[f]+'</td><td>'+enteredStr+'</td><td>'+usedStr+'</td><td>'+MEAN[f]+'</td><td>'+SD[f]+'</td><td><b>'+fmt(norm[f])+'</b></td></tr>';
+    });
+    html += '</table>';
+    [1,2].forEach(k=>{
+      html += '<p class="eq">D<sub>cluster '+k+'</sub> = &radic;[ ';
+      html += fields.map(f=>'('+fmt(norm[f],2)+' &minus; '+CENTROIDS[k][f]+')&sup2;').join(' + ');
+      html += ' ] = <b>'+fmt(dist[k])+'</b></p>';
+    });
+    html += '<p class="eq" style="margin-top:10px;">min(D<sub>1</sub>, D<sub>2</sub>) &rarr; assigned to <b>Cluster '+assigned+'</b></p>';
+    document.getElementById('workArea').innerHTML = html;
+    resultBox.classList.add('show');
+  }
+
+  function reset(){
+    fields.forEach(f=>{
+      document.getElementById(f).value = '';
+      document.getElementById(f).closest('.field').classList.remove('invalid');
+    });
+    document.getElementById('result').classList.remove('show');
+  }
+
+  document.getElementById('soloGlucoseUnit').addEventListener('change', refreshSoloHints);
+  document.getElementById('soloTgUnit').addEventListener('change', refreshSoloHints);
+  document.getElementById('computeBtn').addEventListener('click', compute);
+  document.getElementById('resetBtn').addEventListener('click', reset);
+  fields.forEach(f=>{
+    document.getElementById(f).addEventListener('keydown', e=>{ if (e.key === 'Enter') compute(); });
+  });
+  refreshSoloHints();
+
+  /* ---------- Patient list panel ---------- */
+
+  function showListStatus(kind, message, detail){
+    const box = document.getElementById('listStatus');
+    box.className = 'status show ' + kind;
+    box.innerHTML = '<div>'+message+'</div>' + (detail ? '<div class="status-detail">'+detail+'</div>' : '');
+  }
+
+  function downloadTemplate(){
+    const gUnit = document.getElementById('listGlucoseUnit').value;
+    const tUnit = document.getElementById('listTgUnit').value;
+
+    const templateRows = [
+      { PatientID: 1,
+        Age: 31,
+        BMI: 28.4,
+        OGTT0: gUnit === 'mg/dL' ? fmt(4.5*GLUCOSE_FACTOR,1) : 4.5,
+        OGTT60: gUnit === 'mg/dL' ? fmt(6.9*GLUCOSE_FACTOR,1) : 6.9,
+        OGTT120: gUnit === 'mg/dL' ? fmt(5.7*GLUCOSE_FACTOR,1) : 5.7,
+        TG: tUnit === 'mg/dL' ? fmt(1.4*TG_FACTOR,1) : 1.4 }
+    ];
+    const wsData = XLSX.utils.json_to_sheet(templateRows);
+
+    const instructions = [
+      { Column: 'PatientID', Meaning: 'Any identifier you choose (number or text)' },
+      { Column: 'Age', Meaning: 'Age in years' },
+      { Column: 'BMI', Meaning: 'Pre-pregnancy body mass index, kg/m\u00B2' },
+      { Column: 'OGTT0', Meaning: 'Fasting glucose, '+gUnit+' (selected below before upload)' },
+      { Column: 'OGTT60', Meaning: '60-min glucose, '+gUnit },
+      { Column: 'OGTT120', Meaning: '120-min glucose, '+gUnit },
+      { Column: 'TG', Meaning: 'Triglycerides, '+tUnit },
+      { Column: '', Meaning: '' },
+      { Column: 'Note', Meaning: 'Set the Glucose/Triglyceride unit dropdowns to match this file before uploading it.' }
+    ];
+    const wsInstructions = XLSX.utils.json_to_sheet(instructions);
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, wsData, 'Patient list');
+    XLSX.utils.book_append_sheet(wb, wsInstructions, 'Instructions');
+    XLSX.writeFile(wb, 'patient_list_template.xlsx');
+  }
+
+  let selectedFile = null;
+
+  function loadFile(file){
+    selectedFile = file;
+    document.getElementById('fileName').textContent = file.name;
+    document.getElementById('assignListBtn').disabled = false;
+    document.getElementById('listStatus').classList.remove('show');
+  }
+
+  function processFile(file){
+    const gUnit = document.getElementById('listGlucoseUnit').value;
+    const tUnit = document.getElementById('listTgUnit').value;
+
+    const reader = new FileReader();
+    reader.onload = function(evt){
+      let json;
+      try {
+        const data = new Uint8Array(evt.target.result);
+        const workbook = XLSX.read(data, {type:'array'});
+        const sheet = workbook.Sheets[workbook.SheetNames[0]];
+        json = XLSX.utils.sheet_to_json(sheet);
+      } catch (err){
+        showListStatus('error', 'Could not read this file.', 'Make sure it is a valid .xlsx or .xls spreadsheet.');
+        return;
+      }
+
+      if (!json.length){
+        showListStatus('error', 'The file has no data rows.', 'Add at least one patient row below the header row.');
+        return;
+      }
+
+      const required = ['age','bmi','ogtt0','ogtt60','ogtt120','tg'];
+      const firstKeys = Object.keys(json[0]).map(k => k.trim().toLowerCase());
+      const missingCols = required.filter(r => !firstKeys.includes(r));
+      if (missingCols.length){
+        showListStatus('error', 'Missing expected column(s): ' + missingCols.join(', ') + '.',
+          'Expected columns: PatientID, Age, BMI, OGTT0, OGTT60, OGTT120, TG. Try the template if unsure.');
+        return;
+      }
+
+      let processed = 0;
+      const skipped = [];
+      const output = json.map((row, idx)=>{
+        const keys = {};
+        Object.keys(row).forEach(k => keys[k.trim().toLowerCase()] = row[k]);
+        const id = keys['patientid'] !== undefined ? keys['patientid'] : (keys['id'] !== undefined ? keys['id'] : (idx+1));
+
+        const rawVals = {
+          age: parseFloat(keys['age']),
+          bmi: parseFloat(keys['bmi']),
+          ogtt0: parseFloat(keys['ogtt0']),
+          ogtt60: parseFloat(keys['ogtt60']),
+          ogtt120: parseFloat(keys['ogtt120']),
+          tg: parseFloat(keys['tg'])
+        };
+
+        const hasMissing = Object.values(rawVals).some(v => isNaN(v));
+        if (hasMissing){
+          skipped.push(id);
+          return {
+            PatientID: id, Age: keys['age'], BMI: keys['bmi'],
+            OGTT0: keys['ogtt0'], OGTT60: keys['ogtt60'], OGTT120: keys['ogtt120'], TG: keys['tg'],
+            Units_Glucose: '', Units_TG: '',
+            Age_z: '', BMI_z: '', OGTT0_z: '', OGTT60_z: '', OGTT120_z: '', TG_z: '',
+            Assigned_Cluster: '', Distance_Cluster1: '', Distance_Cluster2: '',
+            Notes: 'Skipped: missing or non-numeric value in one or more required columns'
+          };
+        }
+
+        // Convert to the standard units the model was trained on (mmol/L), THEN
+        // z-score normalize using the cohort mean/SD, THEN compute distance to
+        // each centroid on those normalized (unit-independent) values. This is
+        // what "takes the units into account": whatever unit the sheet was in,
+        // the z-scores below and the resulting distances are always the same.
+        const std = {
+          age: rawVals.age, bmi: rawVals.bmi,
+          ogtt0: toMmolGlucose(rawVals.ogtt0, gUnit),
+          ogtt60: toMmolGlucose(rawVals.ogtt60, gUnit),
+          ogtt120: toMmolGlucose(rawVals.ogtt120, gUnit),
+          tg: toMmolTg(rawVals.tg, tUnit)
+        };
+        const { norm, dist, assigned } = computeCluster(std);
+        processed++;
+        return {
+          PatientID: id,
+          Age: rawVals.age, BMI: rawVals.bmi,
+          OGTT0: rawVals.ogtt0, OGTT60: rawVals.ogtt60, OGTT120: rawVals.ogtt120, TG: rawVals.tg,
+          Units_Glucose: gUnit, Units_TG: tUnit,
+          Age_z: Number(fmt(norm.age)), BMI_z: Number(fmt(norm.bmi)),
+          OGTT0_z: Number(fmt(norm.ogtt0)), OGTT60_z: Number(fmt(norm.ogtt60)),
+          OGTT120_z: Number(fmt(norm.ogtt120)), TG_z: Number(fmt(norm.tg)),
+          Assigned_Cluster: assigned,
+          Distance_Cluster1: Number(fmt(dist[1])),
+          Distance_Cluster2: Number(fmt(dist[2])),
+          Notes: ''
+        };
+      });
+
+      const outSheet = XLSX.utils.json_to_sheet(output);
+      const outWorkbook = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(outWorkbook, outSheet, 'Cluster assignments');
+      const baseName = file.name.replace(/\.(xlsx|xls)$/i, '');
+      const outName = baseName + '_cluster_assignments.xlsx';
+      XLSX.writeFile(outWorkbook, outName);
+
+      if (skipped.length){
+        showListStatus('error',
+          `Processed ${processed} of ${json.length} patients. Downloaded as "${outName}".`,
+          `Skipped ${skipped.length} row(s) with missing or non-numeric values (PatientID: ${skipped.join(', ')}). See the Notes column in the downloaded file.`);
+      } else {
+        showListStatus('ok', `All ${processed} patients processed successfully.`, `Downloaded as "${outName}".`);
+      }
+    };
+    reader.onerror = function(){
+      showListStatus('error', 'Could not read this file.', 'Please try again.');
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  const dropArea = document.getElementById('dropArea');
+  const fileInput = document.getElementById('fileInput');
+  document.getElementById('chooseFileBtn').addEventListener('click', ()=> fileInput.click());
+  document.getElementById('templateBtn').addEventListener('click', downloadTemplate);
+  document.getElementById('assignListBtn').addEventListener('click', ()=>{
+    if (selectedFile) processFile(selectedFile);
+  });
+  fileInput.addEventListener('change', e=>{ if (e.target.files[0]) loadFile(e.target.files[0]); });
+
+  ['dragenter','dragover'].forEach(evt=>{
+    dropArea.addEventListener(evt, e=>{ e.preventDefault(); dropArea.classList.add('dragover'); });
+  });
+  ['dragleave','drop'].forEach(evt=>{
+    dropArea.addEventListener(evt, e=>{ e.preventDefault(); dropArea.classList.remove('dragover'); });
+  });
+  dropArea.addEventListener('drop', e=>{
+    const file = e.dataTransfer.files[0];
+    if (file) loadFile(file);
+  });
+</script>
+</body>
+</html>
